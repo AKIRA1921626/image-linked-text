@@ -40,7 +40,7 @@ local shapes_names = {
 local used_shapes_type = shapes_names[shapes_type] or "円" -- 円がマスクで使う場合の最も無難な形であると判断したため、ここは"円"としている。
 local oz = 0
 
-obj.setoption("drawtarget","tempbuffer",1200,800)
+obj.setoption("drawtarget","tempbuffer",obj.screen_w,obj.screen_h)
 
 -- 1. 図形の描画
 obj.load("figure", used_shapes_type, shapes_col, 100)
