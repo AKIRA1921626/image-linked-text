@@ -2,19 +2,19 @@
 --track@whole_posy:全体位置Y,-100000,100000,0,1
 --track@text_posx:テキスト位置X,-100000,100000,0,1
 --track@text_posy:テキスト位置Y,-100000,100000,0,1
---track@wipe_posx:ワイプ位置X,-100000,100000,-100,1
---track@wipe_posy:ワイプ位置Y,-100000,100000,-50,1
---track@wipe_size:ワイプサイズ,-1000,1000,150,1
+--track@wipe_posx:ワイプ位置X,-100000,100000,0,1
+--track@wipe_posy:ワイプ位置Y,-100000,100000,0,1
+--track@wipe_size:ワイプサイズ,-1000,1000,200,1
 --select@text_type:テキスト寄せ=5,真ん中[上]=1,左寄せ[上]=2,右寄せ[上]=3,真ん中[中]=4,左寄せ[中]=5,右寄せ[中]=6,真ん中[下]=7,左寄せ[下]=8,右寄せ[下]=9
 --track@shapes_size:図形サイズ,-1000,1000,0,1
 --color@shapes_col:図形色,0xffffff
 --select@shapes_type:図形タイプ=2,背景=1,円=2,四角形=3,三角形=4,五角形=5,六角形=6,星型=7,ハート=8
---track@shapes_frame_size:図形縁取りサイズ,0,500,0,1
+--track@shapes_frame_size:図形縁取りサイズ,0,500,5,1
 --track@shapes_frame_blur:図形縁取りぼかし,0,100,0,1
 --color@shapes_frame_col:図形縁取り色,0xc81e1e
 --track@image_posx:画像位置X,-100000,100000,0,1
 --track@image_posy:画像位置Y,-100000,100000,0,1
---track@image_size:画像サイズ,-1000,1000,0,1
+--track@image_size:画像サイズ,-1000,1000,-100,1
 --file@path:画像ファイル
 --check@exclusion_text:テキストを後続のエフェクト対象から除外,0
 --check@exclusion_wipe:ワイプを後続のエフェクト対象から除外,0
@@ -47,7 +47,9 @@ obj.load("figure", used_shapes_type, shapes_col, 100)
 -- 図形の最終的な表示倍率（1.0 = 100px相当）
 local shapes_final_zoom = math.max(0,(shapes_size + wipe_size) / 100)
 
-obj.draw(wipe_posx, wipe_posy, oz, shapes_final_zoom)
+local wipe_default_x = obj.screen_w / 10
+
+obj.draw(wipe_posx - wipe_default_x, wipe_posy, oz, shapes_final_zoom)
 -- 2. 画像とマスクの描画
 if path ~= 0 then
     obj.load("image", path)
@@ -71,9 +73,8 @@ if path ~= 0 then
     if exclusion_image == 0 then -- 画像を後続のエフェクト対象から除外するかどうかの判定
         obj.effect()
     end
-    obj.draw(image_posx + wipe_posx, image_posy + wipe_posy, oz, img_zoom)
+    obj.draw(image_posx + wipe_posx - wipe_default_x, image_posy + wipe_posy, oz, img_zoom)
 end
-
 
 obj.setoption("drawtarget","framebuffer")
 obj.load("tempbuffer")
@@ -83,7 +84,7 @@ obj.effect("縁取り","サイズ",shapes_frame_size,"ぼかし",shapes_frame_bl
 if exclusion_wipe == 0 then --ワイプ全体を後続のエフェクト対象から除外するかどうかの判定
     obj.effect()
 end
-obj.draw(whole_posx,whole_posy)
+obj.draw(whole_posx - wipe_default_x,whole_posy)
 
 obj.copybuffer("obj","cache:text")
 
@@ -138,4 +139,4 @@ obj.oy = oy * a[4] + text_posy
 if exclusion_text == 0 then -- テキストを後続のエフェクト対象から除外するかどうかの判定
     obj.effect()
 end
-obj.draw(text_posx+whole_posx-430,text_posy+whole_posy)
+obj.draw(text_posx + whole_posx - wipe_default_x,text_posy+whole_posy)
