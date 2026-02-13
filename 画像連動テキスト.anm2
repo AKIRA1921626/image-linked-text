@@ -18,7 +18,7 @@
 --track@image_posy:画像位置Y,-100000,100000,0,1
 --track@image_size:画像サイズ,-1000,1000,-100,1
 --file@path:画像ファイル
---group:名札,flase
+--group:名札,false
 --font@tag_font:名札のフォント,MS UI Gothic
 --text@tag_txt:名札の文字,
 --color@tag_col:名札文字色,0xbe0a0a
