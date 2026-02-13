@@ -7,6 +7,8 @@
 --track@wipe_size:ワイプサイズ,-1000,1000,200,1
 --select@text_type:テキスト寄せ=5,真ん中[上]=1,左寄せ[上]=2,右寄せ[上]=3,真ん中[中]=4,左寄せ[中]=5,右寄せ[中]=6,真ん中[下]=7,左寄せ[下]=8,右寄せ[下]=9
 --track@shapes_size:図形サイズ,-1000,1000,0,1
+--track@shapes_posx:図形位置X,-1000,1000,0,1
+--track@shapes_posy:図形位置Y,-1000,1000,0,1
 --color@shapes_col:図形色,0xffffff
 --select@shapes_type:図形タイプ=2,背景=1,円=2,四角形=3,三角形=4,五角形=5,六角形=6,星型=7,ハート=8
 --track@shapes_frame_size:図形縁取りサイズ,0,500,5,1
@@ -16,9 +18,33 @@
 --track@image_posy:画像位置Y,-100000,100000,0,1
 --track@image_size:画像サイズ,-1000,1000,-100,1
 --file@path:画像ファイル
+--group:名札,true
+--font@tag_font:名札のフォント,MS UI Gothic
+--text@tag_txt:名札の文字,
+--color@tag_col:名札文字色,0xbe0a0a
+--track@tag_size:名札サイズ,0,10000,30,1
+--track@tag_posx:名札位置X,-100000,100000,0,1
+--track@tag_posy:名札位置Y,-100000,100000,120,1
+--track@tag_frame_size:名札縁取りサイズ,0,500,0,1
+--color@tag_frame_col:名札縁取り色,0xf5f5f5
+--check@tag_shadow_enable:名札影,0
+--track@tag_shadowx:名札影X,-1000,1000,0,1
+--track@tag_shadowy:名札影Y,-1000,1000,0,1
+--track@tag_shadowdeep:名札影濃さ,0,100,30,1
+--track@tag_shadowdiffusion:名札影拡散,0,500,10,1
+--color@tag_shadow_col:名札影色,0xbe0a0a
+--check@tag_bg_enable:名札背景,0
+--track@tag_bg_sizex:名札背景サイズX,-100000,100000,190,1
+--track@tag_bg_sizey:名札背景サイズY,-100000,100000,60,1
+--track@tag_bg_posx:名札背景位置X,-100000,100000,0,1
+--track@tag_bg_posy:名札背景位置Y,-100000,100000,0,1
+--color@tag_bg_col:名札背景色,0x007814
+--group
 --check@exclusion_text:テキストを後続のエフェクト対象から除外,0
---check@exclusion_wipe:ワイプを後続のエフェクト対象から除外,0
+--check@exclusion_wipe:ワイプを後続のエフェクト対象から除外,1
 --check@exclusion_image:画像を後続のエフェクト対象から除外,1
+--check@exclusion_tag:名札を後続のエフェクト対象から除外,1
+--check@exclusion_tag_bg:名札背景を後続のエフェクト対象から除外,1
 
 obj.copybuffer("cache:text","obj")
 
@@ -40,7 +66,7 @@ local shapes_names = {
 local used_shapes_type = shapes_names[shapes_type] or "円" -- 円がマスクで使う場合の最も無難な形であると判断したため、ここは"円"としている。
 local oz = 0
 
-obj.setoption("drawtarget","tempbuffer",obj.screen_w,obj.screen_h)
+obj.setoption("drawtarget","tempbuffer",obj.screen_w*2,obj.screen_h)
 
 -- 1. 図形の描画
 obj.load("figure", used_shapes_type, shapes_col, 100)
@@ -49,7 +75,7 @@ local shapes_final_zoom = math.max(0,(shapes_size + wipe_size) / 100)
 
 local wipe_default_x = obj.screen_w / 10
 
-obj.draw(wipe_posx - wipe_default_x, wipe_posy, oz, shapes_final_zoom)
+obj.draw(shapes_posx + wipe_posx - wipe_default_x, shapes_posy + wipe_posy, oz, shapes_final_zoom)
 -- 2. 画像とマスクの描画
 if path ~= 0 then
     obj.load("image", path)
@@ -60,8 +86,8 @@ if path ~= 0 then
 
     -- マスク相対座標の計算
     -- 画像の拡大率(img_zoom)で割ることで、画面上の絶対的な距離を画像内座標に変換する
-    local sumx = -image_posx / img_zoom
-    local sumy = -image_posy / img_zoom
+    local sumx = -(image_posx - shapes_posx) / img_zoom
+    local sumy = -(image_posy - shapes_posy) / img_zoom
     
     -- マスクサイズの計算（ここが修正の肝）
     -- 図形は100pxの元データを shapes_final_zoom 倍して描画している。
@@ -85,6 +111,37 @@ if exclusion_wipe == 0 then --ワイプ全体を後続のエフェクト対象�
     obj.effect()
 end
 obj.draw(whole_posx - wipe_default_x,whole_posy)
+
+------------- 名札の描画
+
+if tag_txt ~= "" then
+    if tag_bg_enable ~=0 then
+        obj.load("figure", "四角形", tag_bg_col or 0xffffff, 300)
+        obj.effect("リサイズ", "拡大率", tag_size, "X", tag_bg_sizex, "Y", tag_bg_sizey)
+        if exclusion_tag_bg == 0 then --名札背景を後続のエフェクト対象から除外するかどうかの判定
+            obj.effect()
+        end
+        -- 名札背景用のパラメータ
+        local bg_oz,bg_zoom,bg_alpha,bg_rx,bg_ry =0,1,1,0,0
+        obj.draw(tag_posx + tag_bg_posx + whole_posx - wipe_default_x, tag_posy + tag_bg_posy + whole_posy,bg_oz,bg_zoom,bg_alpha,bg_rx,bg_ry)
+    end
+    obj.setfont(tag_font, tag_size, 0, tag_col)
+    obj.load("text", tag_txt)
+    if tag_frame_size >= 1 then
+        obj.effect("縁取り", "サイズ", tag_frame_size, "ぼかし", 5, "縁色", tag_frame_col)
+    end
+    if tag_shadow_enable ~=0 then
+        obj.effect("ドロップシャドウ", "X", tag_shadowx, "Y", tag_shadowy, "濃さ", tag_shadowdeep, "拡散", tag_shadowdiffusion, "影色", tag_shadow_col, "影を別オブジェクトで描画", 0)
+    end
+    if exclusion_tag == 0 then --名札を後続のエフェクト対象から除外するかどうかの判定
+        obj.effect()
+    end
+    -- 名札用のパラメータ
+    local tag_oz,tag_zoom,tag_alpha,tag_rx,tag_ry =0,1,1,0,0
+    obj.draw(tag_posx + whole_posx - wipe_default_x, tag_posy + whole_posy,tag_oz,tag_zoom,tag_alpha,tag_rx,tag_ry)
+end
+
+-------------------- テキスト描画
 
 obj.copybuffer("obj","cache:text")
 
