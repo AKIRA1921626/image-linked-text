@@ -1,0 +1,152 @@
+--track@whole_posx:全体位置X,-100000,100000,0,1
+--track@whole_posy:全体位置Y,-100000,100000,0,1
+--track@text_posx:テキスト位置X,-100000,100000,0,1
+--track@text_posy:テキスト位置Y,-100000,100000,0,1
+--select@text_type:テキスト寄せ=5,真ん中[上]=1,左寄せ[上]=2,右寄せ[上]=3,真ん中[中]=4,左寄せ[中]=5,右寄せ[中]=6,真ん中[下]=7,左寄せ[下]=8,右寄せ[下]=9
+--track@image_posx:画像位置X,-100000,100000,-400,1
+--track@image_posy:画像位置Y,-100000,100000,0,1
+--track@image_size:画像サイズ,-1000,1000,100,1
+--file@path:画像ファイル
+--group:名札,false
+--font@tag_font:名札のフォント,MS UI Gothic
+--text@tag_txt:名札の文字,
+--color@tag_col:名札文字色,0xbe0a0a
+--track@tag_size:名札サイズ,0,10000,30,1
+--track@tag_posx:名札位置X,-100000,100000,0,1
+--track@tag_posy:名札位置Y,-100000,100000,120,1
+--track@tag_frame_size:名札縁取りサイズ,0,500,0,1
+--color@tag_frame_col:名札縁取り色,0xf5f5f5
+--check@tag_shadow_enable:名札影,0
+--track@tag_shadowx:名札影X,-1000,1000,0,1
+--track@tag_shadowy:名札影Y,-1000,1000,0,1
+--track@tag_shadowdeep:名札影濃さ,0,100,30,1
+--track@tag_shadowdiffusion:名札影拡散,0,500,10,1
+--color@tag_shadow_col:名札影色,0xbe0a0a
+--check@tag_bg_enable:名札背景,0
+--track@tag_bg_sizex:名札背景サイズX,-100000,100000,190,1
+--track@tag_bg_sizey:名札背景サイズY,-100000,100000,60,1
+--track@tag_bg_posx:名札背景位置X,-100000,100000,0,1
+--track@tag_bg_posy:名札背景位置Y,-100000,100000,0,1
+--color@tag_bg_col:名札背景色,0x007814
+--group
+--check@exclusion_text:テキストを後続のエフェクト対象から除外,0
+--check@exclusion_image:画像を後続のエフェクト対象から除外,1
+--check@exclusion_tag:名札を後続のエフェクト対象から除外,1
+--check@exclusion_tag_bg:名札背景を後続のエフェクト対象から除外,1
+
+obj.copybuffer("cache:text","obj")
+
+obj.setoption("drawtarget","tempbuffer",obj.screen_w*2,obj.screen_h)
+
+local image_default_x = obj.screen_w / 10
+local oz = 0
+
+-- 2. 画像の描画
+if path ~= "" then
+    obj.load("image", path)
+
+    -- 画像自体の描画倍率
+    local img_zoom = math.max(0,(image_size) / 100)
+    if img_zoom <= 0 then img_zoom = 0.01 end -- 0除算および非表示回避
+
+    obj.draw(image_posx - image_default_x, image_posy, oz, img_zoom)
+else -- 画像が読み込まれていない状態では図形を読み込み、ここに画像が出るのだという目安とする。
+    obj.load("figure","円",0xc83232,100)
+
+    -- 目安図形の描画倍率
+    local img_zoom = math.max(0,(image_size) / 100)
+    if img_zoom <= 0 then img_zoom = 0.01 end -- 0除算および非表示回避
+
+    obj.draw(image_posx - image_default_x, image_posy, oz, img_zoom)
+end
+
+obj.setoption("drawtarget","framebuffer")
+obj.load("tempbuffer")
+
+obj.draw(whole_posx,whole_posy)
+
+------------- 名札の描画
+
+if tag_txt ~= "" then
+    if tag_bg_enable ~=0 then
+        obj.load("figure", "四角形", tag_bg_col or 0xffffff, 300)
+        obj.effect("リサイズ", "拡大率", tag_size, "X", tag_bg_sizex, "Y", tag_bg_sizey)
+        if exclusion_tag_bg == 0 then --名札背景を後続のエフェクト対象から除外するかどうかの判定
+            obj.effect()
+        end
+        -- 名札背景用のパラメータ
+        local bg_oz,bg_zoom,bg_alpha,bg_rx,bg_ry =0,1,1,0,0
+        obj.draw(tag_posx + tag_bg_posx + image_posx + whole_posx - image_default_x, tag_posy + tag_bg_posy + image_posy + whole_posy,bg_oz,bg_zoom,bg_alpha,bg_rx,bg_ry)
+    end
+    obj.setfont(tag_font, tag_size, 0, tag_col)
+    obj.load("text", tag_txt)
+    if tag_frame_size >= 1 then
+        obj.effect("縁取り", "サイズ", tag_frame_size, "ぼかし", 5, "縁色", tag_frame_col)
+    end
+    if tag_shadow_enable ~=0 then
+        obj.effect("ドロップシャドウ", "X", tag_shadowx, "Y", tag_shadowy, "濃さ", tag_shadowdeep, "拡散", tag_shadowdiffusion, "影色", tag_shadow_col, "影を別オブジェクトで描画", 0)
+    end
+    if exclusion_tag == 0 then --名札を後続のエフェクト対象から除外するかどうかの判定
+        obj.effect()
+    end
+    -- 名札用のパラメータ
+    local tag_oz,tag_zoom,tag_alpha,tag_rx,tag_ry =0,1,1,0,0
+    obj.draw(tag_posx + image_posx + whole_posx - image_default_x, tag_posy + image_posy + whole_posy,tag_oz,tag_zoom,tag_alpha,tag_rx,tag_ry)
+end
+
+-------------------- テキスト描画
+
+obj.copybuffer("obj","cache:text")
+
+local w, h = obj.getpixel()
+
+-- テーブル構造: {cx係数, ox係数, cy係数, oy係数}
+local aligns = {
+    [1] = { 0.0,  0.0,  0.0,  0.5}, -- 真ん中[上]
+    [2] = { 0.0,  0.5,  0.0,  0.5}, -- 左寄せ[上]
+    [3] = { 0.5,  0.0,  0.0,  0.5}, -- 右寄せ[上]
+    
+    [4] = { 0.0,  0.0,  0.0,  0.0}, -- 真ん中[中]
+    [5] = { 0.0,  0.5,  0.0,  0.0}, -- 左寄せ[中]
+    [6] = { 0.5,  0.0,  0.0,  0.0}, -- 右寄せ[中]
+    
+    [7] = { 0.0,  0.0,  0.5,  0.0}, -- 真ん中[下]
+    [8] = { 0.0,  0.5,  0.5,  0.0}, -- 左寄せ[下]
+    [9] = { 0.5,  0.0,  0.5,  0.0}  -- 右寄せ[下]
+}
+
+local a = aligns[text_type] or aligns[5]
+
+local cx,cy = w,h
+local ox,oy = w,h
+
+if aligns[text_type] == 1 then
+    ox = w * -1
+elseif aligns[text_type] == 2 then
+    -- この場合は処理をしない。
+elseif aligns[text_type] == 3 then
+    -- この場合は処理をしない。
+elseif aligns[text_type] == 4 then
+    -- この場合は処理をしない。
+elseif aligns[text_type] == 5 then
+    ox = w * -1
+elseif aligns[text_type] == 6 then
+    cx = w * -1
+elseif aligns[text_type] == 7 then
+    -- この場合は処理をしない。
+elseif aligns[text_type] == 8 then
+    ox = w * -1
+elseif aligns[text_type] == 9 then
+    cx = w * -1
+end
+
+-- 共通計算式への代入
+obj.cx = cx * a[1] + text_posx
+obj.ox = ox * a[2] + text_posx
+obj.cy = cy * a[3] + text_posy
+obj.oy = oy * a[4] + text_posy
+
+if exclusion_text == 0 then -- テキストを後続のエフェクト対象から除外するかどうかの判定
+    obj.effect()
+end
+obj.draw(text_posx + whole_posx - image_default_x,text_posy+whole_posy)
