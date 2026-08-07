@@ -1,0 +1,300 @@
+--label:装飾
+--group:全体,true
+--track@whole_posx:全体位置X,-100000,100000,0,1
+--track@whole_posy:全体位置Y,-100000,100000,0,1
+--select@whole_dir:画像位置=2,中央=1,左=2,右=3,上=4,下=5
+--check@use_mask:マスクを適用,0
+--group
+
+--group:画像,true
+--file@path:画像ファイル
+--track@image_size:画像サイズ,0,10000,100,1
+--track@image_posx:画像位置X,-100000,100000,0,1
+--track@image_posy:画像位置Y,-100000,100000,0,1
+--group
+
+--group:背景,true
+--color@bg_col:背景色,0xf5f5f5
+--track@bg_size:背景サイズ,0,10000,200,1
+--track@bg_posx:背景位置X,-100000,100000,0,1
+--track@bg_posy:背景位置Y,-100000,100000,0,1
+--select@bg_type:背景タイプ=2,背景=1,円=2,四角形=3,三角形=4,五角形=5,六角形=6,星型=7,ハート=8
+--group
+
+--group:装飾,true
+--color@deco_col:装飾色,0xbe0a0a
+--select@deco_type:装飾タイプ=1,装飾なし=1,ストライプ=2,水玉=3,星=4
+--track@deco_size:装飾サイズ,-2000,2000,100,1
+--track@deco_pieces:装飾個数,-100,100,5,1
+--track@deco_rotate:装飾角度,-3600,3600,50,1
+--track@deco_interval:装飾間隔,-2000,2000,0,1
+--track@frame_size:縁取りサイズ,0,500,0,1
+--color@frame_col:縁取り色,0xbe0a0a
+--group
+
+--group:名札,false
+--check@tag:名札を表示,0
+--separator:名札文字
+--font@tag_font:名札のフォント,MS UI Gothic
+--text@tag_txt:名札の文字,名札の文字
+--color@tag_text_col:名札文字色,0xbe0a0a
+--track@tag_text_size:名札文字サイズ,0,10000,20,1
+--track@tag_text_posx:名札文字位置X,-100000,100000,0,1
+--track@tag_text_posy:名札文字位置Y,-100000,100000,0,1
+--separator:名札全体
+--track@tag_size:名札サイズ,0,10000,20,1
+--track@tag_posx:名札位置X,-100000,100000,0,1
+--track@tag_posy:名札位置Y,-100000,100000,0,1
+--separator:名札背景
+--color@tag_bg_col:名札背景色,0x148228
+--track@tag_bg_posx:名札背景位置X,-100000,100000,0,1
+--track@tag_bg_posy:名札背景位置Y,-100000,100000,0,1
+--track@tag_bg_size:名札背景サイズ,0,10000,100,1
+--track@tag_bg_sizex:名札背景縦,-100000,100000,0,1
+--track@tag_bg_sizey:名札背景横,-100000,100000,0,1
+--separator:名札縁取り
+--track@tag_frame_size:名札縁取りサイズ,0,500,0,1
+--color@tag_frame_col:名札縁取り色,0xbe0a0a
+--group
+
+--group:チェック,true
+--check@offset:オフセット,1
+--check@exclusion_text:テキストを後続のエフェクト対象から除外,0
+--check@exclusion_wipe:ワイプを後続のエフェクト対象から除外,1
+--check@exclusion_image:画像を後続のエフェクト対象から除外,1
+--check@exclusion_tag:名札を後続のエフェクト対象から除外,1
+--check@exclusion_tag_bg:名札背景を後続のエフェクト対象から除外,1
+--group
+
+------------------------------------------------------------------
+-- 1. 最優先で仮想バッファ切り替え & 元オブジェクトのキャッシング
+------------------------------------------------------------------
+-- スクリプト適用直前の元オブジェクトのデータをキャッシュへ退避
+obj.copybuffer("cache:orig", "obj")
+
+-- 元オブジェクトのサイズ取得
+local w_c, h_c = obj.getpixel()
+
+local bg_names = {
+    [1] = "背景",
+    [2] = "円",
+    [3] = "四角形",
+    [4] = "三角形",
+    [5] = "五角形",
+    [6] = "六角形",
+    [7] = "星型",
+    [8] = "ハート"
+}
+local used_bg_type = bg_names[bg_type] or "円"
+
+------------------------------------------------------------------
+-- 2. 各座標の決定 (アンカーなしの純粋絶対位置)
+------------------------------------------------------------------
+local final_bg_posx = whole_posx + bg_posx
+local final_bg_posy = whole_posy + bg_posy
+
+local final_image_posx = whole_posx + image_posx
+local final_image_posy = whole_posy + image_posy
+
+------------------------------------------------------------------
+-- 3. 中央配置のための移動オフセット（連動移動）算出
+------------------------------------------------------------------
+local B_posx = final_image_posx
+local B_posy = final_image_posy
+local B_width = 0
+local B_height = 0
+
+-- 方向によりベースとなる位置を決定
+local dir_values = {
+    [1] = {0,0},
+    [2] = {-w_c / 2,0},
+    [3] = {w_c / 2,0},
+    [4] = {0,-h_c / 2},
+    [5] = {0,h_c / 2},
+}
+
+local used_dir_valuex = dir_values[whole_dir][1] or 0
+local used_dir_valuey = dir_values[whole_dir][2] or 0
+
+local has_image = (path ~= nil and path ~= "")
+local w_a, h_a = 0, 0
+if has_image then
+    obj.load("image", path)
+    local raw_w, raw_h = obj.getpixel()
+    local scale = image_size / 100
+    w_a = raw_w * scale
+    h_a = raw_h * scale
+end
+
+if use_mask == 1 then
+    B_posx = final_bg_posx
+    B_posy = final_bg_posy
+    B_width = bg_size
+    B_height = bg_size
+else
+    B_width = w_a
+    B_height = h_a
+end
+
+local shift_x = 0
+local shift_y = 0
+
+if offset == 1 then
+    -- はみ出し判定用の基準中心座標の算出 (手動配置基準のずれを適用)
+    local B_draw_x = B_posx + used_dir_valuex
+    local B_draw_y = B_posy + used_dir_valuey
+
+    -- 右・左・下・上へのはみ出し量
+    local out_right = (B_draw_x + B_width / 2) - (w_c / 2)
+    local out_left = (-w_c / 2) - (B_draw_x - B_width / 2)
+    local out_bottom = (B_draw_y + B_height / 2) - (h_c / 2)
+    local out_top = (-h_c / 2) - (B_draw_y - B_height / 2)
+
+    -- whole_dir (画像位置) の値に応じて判定する方向を切り替える
+    if whole_dir == 2 then -- 左 (左はみ出しのみ検知)
+        if out_left > 0 then
+            shift_x = out_left
+        end
+    elseif whole_dir == 3 then -- 右 (右はみ出しのみ検知)
+        if out_right > 0 then
+            shift_x = -out_right
+        end
+    elseif whole_dir == 4 then -- 上 (上はみ出しのみ検知)
+        if out_top > 0 then
+            shift_y = out_top
+        end
+    elseif whole_dir == 5 then -- 下 (下はみ出しのみ検知)
+        if out_bottom > 0 then
+            shift_y = -out_bottom
+        end
+    end
+end
+
+-- 元オブジェクト（A）と名札の描画基準座標 (はみ出た分だけ shift を加算)
+local draw_ax = shift_x
+local draw_ay = shift_y
+
+-- その他要素（B:画像, C:背景マスク）の描画基準座標 (shift を足さないことで不動になるのを防ぐ)
+local draw_ox = 0 + used_dir_valuex
+local draw_oy = 0 + used_dir_valuey
+
+------------------------------------------------------------------
+-- 4. 仮想バッファ(tempbuffer)への順次描き込み (ワイプ要素のみ)
+------------------------------------------------------------------
+
+local has_wipe = (use_mask == 1) or has_image
+
+if has_wipe then
+    obj.setoption("drawtarget", "tempbuffer", obj.screen_w, obj.screen_h)
+
+    -- (1) 背景図形の描画 (マスク適用時のみ)
+    if use_mask == 1 then
+        obj.load("figure", used_bg_type, bg_col, bg_size)
+        obj.draw(final_bg_posx + draw_ox, final_bg_posy + draw_oy)
+        
+        -- (2) 装飾の描画
+        if deco_type == 2 then -- ストライプ
+            local interval_base = 100 + deco_interval
+            local d_size = math.max(1, deco_size)
+            local count = math.max(1, deco_pieces)
+            for i = -count, count do
+                local target_y = i * interval_base
+                obj.load("figure", "四角形", deco_col, bg_size)
+                obj.effect("斜めクリッピング", "中心X", 0, "中心Y", target_y, "角度", 0, "ぼかし", 1, "幅", d_size)
+                obj.draw(final_bg_posx + draw_ox, final_bg_posy + draw_oy, 0, 1, 1, 0, 0, deco_rotate)
+            end
+        elseif deco_type == 3 or deco_type == 4 then -- 水玉 または 星
+            local deco_shape_name = "円"
+            if deco_type == 4 then
+                deco_shape_name = "星型"
+            end
+            local count = math.max(1, deco_pieces)
+            local interval = math.max(5, 50 + deco_interval)
+            local d_size = math.max(1, deco_size)
+            local rad = math.rad(deco_rotate / 10)
+            
+            for ix = -count, count do
+                for iy = -count, count do
+                    local x_off = ix * interval
+                    local y_off = iy * interval
+                    local rx = x_off * math.cos(rad) - y_off * math.sin(rad)
+                    local ry = x_off * math.sin(rad) + y_off * math.cos(rad)
+                    
+                    obj.load("figure", deco_shape_name, deco_col, d_size)
+                    obj.draw(final_bg_posx + draw_ox + rx, final_bg_posy + draw_oy + ry)
+                end
+            end
+        end
+    end
+
+    -- (3) 画像ファイルの描画
+    if has_image then
+        obj.load("image", path)
+        obj.effect("リサイズ", "拡大率", image_size)
+        if exclusion_image == 0 then
+            obj.effect()
+        end
+        obj.draw(final_image_posx + draw_ox, final_image_posy + draw_oy)
+    end
+end
+
+------------------------------------------------------------------
+-- 5. メイン画面への描画
+------------------------------------------------------------------
+
+-- framebuffer に切り替え
+obj.setoption("drawtarget", "framebuffer")
+
+-- (1) 元オブジェクト(A)の描画
+obj.copybuffer("obj", "cache:orig")
+if exclusion_text == 0 then
+    obj.effect()
+end
+obj.draw(draw_ax, draw_ay)
+
+-- (2) ワイプ要素 (tempbuffer) のロードとマスク・描画
+if has_wipe then
+    obj.load("tempbuffer")
+
+    if use_mask == 1 then
+        local default_rotate = 0
+        local default_aspect = 0
+        local default_blur = 0
+        obj.effect("マスク", "X", final_bg_posx + draw_ox, "Y", final_bg_posy + draw_oy, "回転", default_rotate, "サイズ", bg_size, "縦横比", default_aspect, "ぼかし", default_blur, "マスクの種類", used_bg_type)
+    end
+
+    if frame_size >= 1 then
+        obj.effect("縁取り", "サイズ", frame_size, "ぼかし", 5, "縁色", frame_col)
+    end
+
+    if exclusion_wipe == 0 then
+        obj.effect()
+    end
+    obj.draw()
+end
+
+-- (3) 名札(D)の描画 (マスク適用外)
+local has_tag = (tag ~= 0)
+local has_tag_bg = has_tag and (tag_bg_sizex > 0 and tag_bg_sizey > 0)
+if has_tag then
+    -- 名札背景
+    if has_tag_bg then
+        obj.load("figure", "四角形", tag_bg_col or 0xffffff, 300)
+        obj.effect("リサイズ", "拡大率", 100 + tag_bg_size , "X",tag_bg_sizex, "Y",tag_bg_sizey)
+        if exclusion_tag_bg == 0 then
+            obj.effect()
+        end
+        obj.draw(tag_bg_posx + tag_posx + whole_posx + draw_ox, tag_bg_posy + tag_posy + whole_posy + draw_oy)
+    end
+
+    -- 名札テキスト
+    obj.setfont(tag_font, tag_text_size, 0, tag_text_col)
+    obj.load("text", tag_txt)
+    if tag_frame_size >= 1 then
+        obj.effect("縁取り", "サイズ", tag_frame_size, "ぼかし", 5, "縁色", tag_frame_col)
+    end
+    if exclusion_tag == 0 then
+        obj.effect()
+    end
+    obj.draw(tag_text_posx + tag_posx + whole_posx + draw_ox, tag_text_posy + tag_posy + whole_posy + draw_oy)
+end
