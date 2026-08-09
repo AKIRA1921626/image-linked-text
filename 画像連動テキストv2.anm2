@@ -231,6 +231,7 @@ if has_wipe then
     if has_image then
         obj.load("image", path)
         obj.effect("リサイズ", "拡大率", image_size)
+        obj.setanchor("image_posx,image_posy",0,"offset",whole_posx + draw_ox,whole_posy + draw_oy)
         if exclusion_image == 0 then
             obj.effect()
         end
