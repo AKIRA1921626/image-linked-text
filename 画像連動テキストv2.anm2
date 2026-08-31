@@ -1,9 +1,17 @@
 --label:装飾
+
 --group:全体,true
+--track@whole_size:全体サイズ,0,2000,100,1
 --track@whole_posx:全体位置X,-100000,100000,0,1
 --track@whole_posy:全体位置Y,-100000,100000,0,1
 --select@whole_dir:画像位置=2,中央=1,左=2,右=3,上=4,下=5
 --check@use_mask:マスクを適用,0
+--group
+
+--group:元テキスト,true
+--track@text_size:テキストサイズ,0,10000,100,1
+--track@text_posx:テキスト位置X,-100000,100000,0,1
+--track@text_posy:テキスト位置Y,-100000,100000,0,1
 --group
 
 --group:画像,true
@@ -28,9 +36,14 @@
 --track@deco_pieces:装飾個数,-100,100,5,1
 --track@deco_rotate:装飾角度,-3600,3600,50,1
 --track@deco_interval:装飾間隔,-2000,2000,0,1
+--separator:縁取り
 --track@frame_size:縁取りサイズ,0,500,0,1
 --color@frame_col:縁取り色,0xbe0a0a
 --group
+--hide@deco_size:deco_type==1
+--hide@deco_pieces:deco_type==1
+--hide@deco_rotate:deco_type==1
+--hide@deco_interval:deco_type==1
 
 --group:名札,false
 --check@tag:名札を表示,0
@@ -41,8 +54,11 @@
 --track@tag_text_size:名札文字サイズ,0,10000,20,1
 --track@tag_text_posx:名札文字位置X,-100000,100000,0,1
 --track@tag_text_posy:名札文字位置Y,-100000,100000,0,1
+--separator:名札文字縁取り
+--track@tag_frame_size:文字縁取りサイズ,0,500,0,1
+--color@tag_frame_col:文字縁取り色,0xbe0a0a
 --separator:名札全体
---track@tag_size:名札サイズ,0,10000,20,1
+--track@tag_size:名札サイズ,0,10000,100,1
 --track@tag_posx:名札位置X,-100000,100000,0,1
 --track@tag_posy:名札位置Y,-100000,100000,90,1
 --separator:名札背景
@@ -52,9 +68,9 @@
 --track@tag_bg_size:名札背景サイズ,0,10000,100,1
 --track@tag_bg_sizex:名札背景横,-100000,100000,30,1
 --track@tag_bg_sizey:名札背景縦,-100000,100000,10,1
---separator:名札縁取り
---track@tag_frame_size:名札縁取りサイズ,0,500,0,1
---color@tag_frame_col:名札縁取り色,0xbe0a0a
+--separator:名札背景縁取り
+--track@tag_bg_frame_size:背景縁取りサイズ,0,500,0,1
+--color@tag_bg_frame_col:背景縁取り色,0xbe0a0a
 --group
 
 --group:チェック,true
@@ -65,6 +81,9 @@
 --check@exclusion_tag:名札を後続のエフェクト対象から除外,1
 --check@exclusion_tag_bg:名札背景を後続のエフェクト対象から除外,1
 --group
+--hide@exclusion_wipe:use_mask==0
+--hide@exclusion_tag:tag==0
+--hide@exclusion_tag_bg:tag==0
 
 ------------------------------------------------------------------
 -- 1. 最優先で仮想バッファ切り替え & 元オブジェクトのキャッシング
@@ -129,11 +148,11 @@ end
 if use_mask == 1 then
     B_posx = final_bg_posx
     B_posy = final_bg_posy
-    B_width = bg_size
-    B_height = bg_size
+    B_width = bg_size * (whole_size / 100)
+    B_height = bg_size * (whole_size / 100)
 else
-    B_width = w_a
-    B_height = h_a
+    B_width = w_a * (whole_size / 100)
+    B_height = h_a * (whole_size / 100)
 end
 
 local shift_x = 0
@@ -145,10 +164,10 @@ if offset == 1 then
     local B_draw_y = B_posy + used_dir_valuey
 
     -- 右・左・下・上へのはみ出し量
-    local out_right = (B_draw_x + B_width / 2) - (w_c / 2)
-    local out_left = (-w_c / 2) - (B_draw_x - B_width / 2)
-    local out_bottom = (B_draw_y + B_height / 2) - (h_c / 2)
-    local out_top = (-h_c / 2) - (B_draw_y - B_height / 2)
+    local out_right = (B_draw_x + B_width / 2) - (w_c / 2 + text_posx)
+    local out_left = (-w_c / 2 + text_posx) - (B_draw_x - B_width / 2)
+    local out_bottom = (B_draw_y + B_height / 2) - (h_c / 2 + text_posy)
+    local out_top = (-h_c / 2 + text_posy) - (B_draw_y - B_height / 2)
 
     -- whole_dir (画像位置) の値に応じて判定する方向を切り替える
     if whole_dir == 2 then -- 左 (左はみ出しのみ検知)
@@ -171,8 +190,8 @@ if offset == 1 then
 end
 
 -- 元オブジェクト（A）と名札の描画基準座標 (はみ出た分だけ shift を加算)
-local draw_ax = shift_x
-local draw_ay = shift_y
+local draw_ax = shift_x + text_posx
+local draw_ay = shift_y + text_posy
 
 -- その他要素（B:画像, C:背景マスク）の描画基準座標 (shift を足さないことで不動になるのを防ぐ)
 local draw_ox = 0 + used_dir_valuex
@@ -251,7 +270,9 @@ obj.copybuffer("obj", "cache:orig")
 if exclusion_text == 0 then
     obj.effect()
 end
-obj.draw(draw_ax, draw_ay)
+
+local text_draw_size = text_size/100
+obj.draw(draw_ax + text_posx, draw_ay + text_posy,0,text_draw_size)
 
 -- (2) ワイプ要素 (tempbuffer) のロードとマスク・描画
 if has_wipe then
@@ -262,6 +283,10 @@ if has_wipe then
         local default_aspect = 0
         local default_blur = 0
         obj.effect("マスク", "X", final_bg_posx + draw_ox, "Y", final_bg_posy + draw_oy, "回転", default_rotate, "サイズ", bg_size, "縦横比", default_aspect, "ぼかし", default_blur, "マスクの種類", used_bg_type)
+    end
+
+    if whole_size ~= 100 then
+        obj.effect("リサイズ", "拡大率", whole_size)
     end
 
     if frame_size >= 1 then
@@ -281,7 +306,11 @@ if has_tag then
     -- 名札背景
     if has_tag_bg then
         obj.load("figure", "四角形", tag_bg_col or 0xffffff, 300)
-        obj.effect("リサイズ", "拡大率", 100 + tag_bg_size + tag_size, "X",tag_bg_sizex, "Y",tag_bg_sizey)
+        local final_tag_bg_scale = (100 + tag_bg_size) * (tag_size / 100)
+        obj.effect("リサイズ", "拡大率", final_tag_bg_scale, "X", tag_bg_sizex, "Y", tag_bg_sizey)
+        if tag_bg_frame_size >= 1 then
+            obj.effect("縁取り", "サイズ", tag_bg_frame_size, "ぼかし", 5, "縁色", tag_bg_frame_col)
+        end
         if exclusion_tag_bg == 0 then
             obj.effect()
         end
@@ -289,7 +318,8 @@ if has_tag then
     end
 
     -- 名札テキスト
-    obj.setfont(tag_font, tag_text_size + tag_size, 0, tag_text_col)
+    local final_tag_text_size = tag_text_size * (tag_size / 100)
+    obj.setfont(tag_font, final_tag_text_size, 0, tag_text_col)
     obj.load("text", tag_txt)
     if tag_frame_size >= 1 then
         obj.effect("縁取り", "サイズ", tag_frame_size, "ぼかし", 5, "縁色", tag_frame_col)
