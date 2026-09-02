@@ -4,18 +4,12 @@
 --track@whole_size:全体サイズ,0,2000,100,1
 --track@whole_posx:全体位置X,-100000,100000,0,1
 --track@whole_posy:全体位置Y,-100000,100000,0,1
---select@whole_dir:画像位置=2,中央=1,左=2,右=3,上=4,下=5
---check@use_mask:マスクを適用,0
---group
-
---group:元テキスト,true
---track@text_size:テキストサイズ,0,10000,100,1
---track@text_posx:テキスト位置X,-100000,100000,0,1
---track@text_posy:テキスト位置Y,-100000,100000,0,1
 --group
 
 --group:画像,true
 --file@path:画像ファイル
+--select@whole_dir:画像位置=2,中央=1,左=2,右=3,上=4,下=5
+--check@use_mask:マスクを適用,0
 --track@image_size:画像サイズ,0,10000,100,1
 --track@image_posx:画像位置X,-100000,100000,0,1
 --track@image_posy:画像位置Y,-100000,100000,0,1
@@ -32,6 +26,12 @@
 --track@bg_posx:背景位置X,-100000,100000,0,1
 --track@bg_posy:背景位置Y,-100000,100000,0,1
 --figure@bg_type:背景タイプ,円
+--group
+
+--group:元テキスト,true
+--track@text_size:テキストサイズ,0,10000,100,1
+--track@text_posx:テキスト位置X,-100000,100000,0,1
+--track@text_posy:テキスト位置Y,-100000,100000,0,1
 --group
 
 --group:装飾,true
